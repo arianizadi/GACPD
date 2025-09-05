@@ -321,8 +321,10 @@ class GACPD:
             hunk_count = 0
             add_count = 0
             del_count = 0
+            line_count = 0
             additions_file = []
             deletions_file = []
+            context_file = []
 
             for line in patch:
                 # Detect the start of a new hunk (lines starting with "@@")
@@ -330,9 +332,11 @@ class GACPD:
                     if hunk_count >= 0:
                         self.save_hunk_files(hunk_count, output_dir, deletions_file, del_count, f"deletions.{extension}")
                         self.save_hunk_files(hunk_count, output_dir, additions_file, add_count, f"additions.{extension}")
+                        self.save_hunk_files(hunk_count, output_dir, context_file, line_count, f"context.{extension}")
                     hunk_count += 1
                     additions_file = []
                     deletions_file = []
+                    context_file = []
 
                 if line.startswith('+') and not line.startswith("+++"):
                     additions_file.append(line[1:])
@@ -343,11 +347,14 @@ class GACPD:
                 elif not line.startswith("---") and not line.startswith("+++") and not line.startswith('@@'):
                     additions_file.append(line)
                     deletions_file.append(line)
+                    context_file.append(line)
+                    line_count += 1
 
             # Process the last hunk if any
             if deletions_file or additions_file:
                 self.save_hunk_files(hunk_count, output_dir, deletions_file, del_count, f"deletions.{extension}")
                 self.save_hunk_files(hunk_count, output_dir, additions_file, add_count, f"additions.{extension}")
+                self.save_hunk_files(hunk_count, output_dir, context_file, line_count, f"context.{extension}")
 
     def save_hunk_files(self, hunk_id, output_dir, additions_hunks, counts, type_of_change):
         os.makedirs(output_dir, exist_ok=True)
@@ -732,9 +739,41 @@ class GACPD:
                                                     renamedDestPath = True
 
                                         self.parse_patch_file(f'src/{repo_files[len(repo_files) - 1]}', f'src', f'{extension}')
+                                        tokens_context = [10]
+                                        files_context = []
+                                        for token in tokens_context:
+                                            jscpd_path = os.path.normpath(
+                                                os.path.join(os.getcwd(), 'node_modules', '.bin', 'jscpd'))
+                                            jscpd_path = jscpd_path.replace('\\', '/')
 
+                                            test = subprocess.run(
+                                                [jscpd_path, '--pattern', f'*.{extension}', '--min-tokens',
+                                                 f'{token}'],
+                                                capture_output=True,
+                                                text=True
+                                            )
+
+                                            file_check = open('reports/html/jscpd-report.json')
+                                            data_check = json.load(file_check)
+                                            file_check.close()
+
+                                            format = self.file_extensions_swapped.get("." + extension)
+
+                                            try:
+                                                for checks in data_check["statistics"]["formats"][format][
+                                                    "sources"]:
+                                                    value = data_check["statistics"]["formats"][format]["sources"][
+                                                        checks]["duplicatedTokens"]
+
+                                                    if "context" in checks:
+                                                        if value != 0:
+                                                            files_context.append("_".join(checks.split("_")[:2]))
+                                            except Exception as e2:
+                                                pass
+
+                                            self.remove_all_files('reports')
                                         classification = ""
-                                        tokens_jscpd = [30]
+                                        tokens_jscpd = [50,40,30]
                                         MO_total = 0
                                         ED_total = 0
                                         SP_total = 0
@@ -758,28 +797,42 @@ class GACPD:
                                             data_check = json.load(file_check)
                                             file_check.close()
 
+                                            mo_context_check = []
+                                            ed_context_check = []
                                             format = self.file_extensions_swapped.get("." + extension)
                                             try:
                                                 for checks in data_check["statistics"]["formats"][format][
                                                     "sources"]:
-                                                    if "deletions" in checks:
-                                                        MO_check += \
-                                                            data_check["statistics"]["formats"][format]["sources"][
+                                                    value = data_check["statistics"]["formats"][format]["sources"][
                                                                 checks]["duplicatedTokens"]
+                                                    if "deletions" in checks:
+                                                        MO_check += value
+                                                        if value == 0:
+                                                            for hunk in files_context:
+                                                                if checks.startswith(hunk):
+                                                                    mo_context_check.append(checks)
+                                                                    break
                                                         percentage = data_check["statistics"]["formats"][format]["sources"][
                                                                 checks]["percentage"]
                                                         localCheckPercetage.append(f"{checks} ({jscpdtoken}) - has a similarity of: {percentage}%\n")
                                                     if "additions" in checks:
-                                                        ED_check += \
-                                                            data_check["statistics"]["formats"][format]["sources"][
-                                                                checks]["duplicatedTokens"]
+                                                        ED_check += value
+                                                        if value == 0:
+                                                            for hunk in files_context:
+                                                                if checks.startswith(hunk):
+                                                                    ed_context_check.append(checks)
+                                                                    break
                                                         percentage = data_check["statistics"]["formats"][format]["sources"][
                                                                 checks]["percentage"]
                                                         localCheckPercetage.append(f"{checks} ({jscpdtoken}) - has a similarity of: {percentage}%\n")
-                                            except Exception as e:
+                                            except Exception as e3:
                                                 print("HERE - 2")
 
-                                            if MO_check == 0 and ED_check == 0:
+                                            if MO_check == 0 and len(mo_context_check) > 0:
+                                                ED_total += 1
+                                            elif ED_check == 0 and len(ed_context_check) > 0:
+                                                MO_total += 1
+                                            elif MO_check == 0 and ED_check == 0:
                                                 NA_check += 1
                                                 continue
                                             elif MO_check == ED_check:
