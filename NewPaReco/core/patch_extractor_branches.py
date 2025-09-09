@@ -145,6 +145,7 @@ def crawl_branch(repo_owner, repo_name, branch, token_list, ct, bug_keyword,
         ct = _rotate(ct, token_list)
 
         pulls = data["repository"]["pullRequests"]
+        print(str(len(pulls["nodes"]))+" Total PRs")
         for pr in pulls["nodes"]:
             pr_num = pr["number"]
             pr_title = pr["title"]
@@ -181,7 +182,7 @@ def crawl_branch(repo_owner, repo_name, branch, token_list, ct, bug_keyword,
     return all_prs, all_titles, ct
 
 
-def pullrequest_patches(repo, branch_name, token_list, ct):
+def pullrequest_patches_branch(repo, branch_name, token_list, ct):
     """
     Crawl all merged PRs into `branch_name` without search cap issues.
     `repo` is "owner/name".
@@ -196,6 +197,8 @@ def pullrequest_patches(repo, branch_name, token_list, ct):
     # end_dt   = parse_iso_z("2018-12-31T18:26:45Z")
     start_dt = None
     end_dt = None
+
+    print(owner, name, branch_name)
 
     prs, titles, ct = crawl_branch(
         repo_owner=owner,

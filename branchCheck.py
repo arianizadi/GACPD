@@ -1,0 +1,110 @@
+import os, subprocess, shutil
+
+
+def remove_all_files(directory_path):
+    # Check if the directory exists
+    if os.path.exists(directory_path) and os.path.isdir(directory_path):
+        # Loop through all files and directories in the specified directory
+        for filename in os.listdir(directory_path):
+            file_path = os.path.join(directory_path, filename)
+            try:
+                # Remove file if it's a file, or recursively delete if it's a directory
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.remove(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f"Failed to delete {file_path}. Reason: {e}")
+    else:
+        print("The specified directory does not exist or is not a directory.")
+
+
+def create_git_folder(folder, repo_name):
+    repo_name = repo_name.replace("\\", "/")
+    repo_owner = repo_name.split("/")
+
+    og_path = os.getcwd()
+    if os.path.exists(folder + "/" + repo_owner[0] + "/" + repo_owner[1]):
+        os.chdir(folder + "/" + repo_owner[0] + "/" + repo_owner[1])
+    else:
+        os.makedirs(folder + "/" + repo_owner[0] + "/" + repo_owner[1])
+        os.chdir(folder + "/" + repo_owner[0] + "/" + repo_owner[1])
+
+    command = [
+        "git",
+        "clone",
+        f'https://github.com/{repo_owner[1]}/{repo_owner[2]}',
+    ]
+
+    subprocess.run(command)
+
+    os.chdir(og_path)
+
+def run_jscpd(extension, token):
+    jscpd_path = os.path.normpath(
+        os.path.join(os.getcwd(), 'node_modules', '.bin', 'jscpd'))
+    jscpd_path = jscpd_path.replace('\\', '/')
+
+    test = subprocess.run(
+        [jscpd_path, '--pattern', f'*.{extension}', '--min-tokens',
+         f'{token}'],
+        capture_output=True,
+        text=True
+    )
+
+    print(test)
+
+
+def get_all_files(directory_path):
+    files = []
+    for entry in os.listdir(directory_path):
+        full_path = os.path.join(directory_path, entry)
+        if os.path.isfile(full_path):
+            files.append(entry)
+    print(files)
+    return files
+
+
+def main():
+    folder = "Check"
+    repo_name = "ardupilot"
+    repo_owner = "Ardupilot"
+    full_path = "1/"+repo_owner+"/"+repo_name
+
+    # create_git_folder(folder, full_path)
+    first_folder = "ArduCopter"
+    first_check_folder = folder+"/"+full_path+"/"+first_folder
+    files1 = get_all_files(first_check_folder)
+
+    second_folder = "ArduPlane"
+    second_check_folder = folder+"/"+full_path+"/"+second_folder
+    shutil.copytree(second_check_folder, 'cmp', dirs_exist_ok=True)
+
+    i = 0
+    for entry in files1:
+        i += 1
+        print(f"{entry} - {i}")
+        tokens = [50, 40, 30, 20, 10]
+        shutil.copy(first_check_folder +"/"+entry, 'src')
+
+        for token in tokens:
+            extension = entry.split(".")
+
+            run_jscpd(extension[1], token)
+
+            shutil.copytree('src',
+                            f'Check/Repos_results/1/{token}/{entry}/src',
+                            dirs_exist_ok=True)
+            shutil.copytree('cmp',
+                            f'Check/Repos_results/1/{token}/{entry}/cmp',
+                            dirs_exist_ok=True)
+            shutil.copytree('reports',
+                            f'Check/Repos_results/1/{token}/{entry}/reports',
+                            dirs_exist_ok=True)
+
+
+        remove_all_files('src')
+        remove_all_files('reports')
+    remove_all_files('cmp')
+if __name__ == "__main__":
+    main()
