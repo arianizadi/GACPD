@@ -50,5 +50,8 @@ This command will directly install of the provided package.json and package-lock
 pip install -r requirements.txt
 ```
 
+# Non-Linux Requirements:
+  - Create the following folders: `cmp`, `src`, and `reports`
+
 # Github Tokens
 We use [GitHub tokens](https://github.com/settings/tokens) when extracting PR patches. This allows for higher rate limit because of the high number of requests to the GitHub API. Tokens can be set in the tokens.txt file seperated by a comman. The user can add as many tokens as needed. A minimal of 2 tokens can be used to safely execute code and to make sure that the rate limit is not reached for a token.
