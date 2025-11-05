@@ -22,5 +22,5 @@ BUGFIX_KEYWORDS = ['failur', 'fail', 'npe ', ' npe', 'issue', 'except', 'broken'
                    'race condition', 'restart', 'steps to reproduce', 'crash', 'assertion', 'failure', 'leak',
                    'stack trace', 'defect', 'mistake', 'fix', 'avoid',
                    'regression', 'test fix', ' hang', 'hang ', 'heap overflow', 'mozregression', 'safemode',
-                   'safe mode', 'stop'
+                   'safe mode', 'stop', 'corrected', 'adjusted'
                    ]

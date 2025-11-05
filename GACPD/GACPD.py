@@ -1,6 +1,6 @@
 import os
 import pprint
-import sys
+import sys, platform
 import json
 import pandas as pd
 import shutil
@@ -26,223 +26,461 @@ from NewPaReco.utils import helpers
 from NewPaReco.utils.helpers import divergence_date
 # from Methods.patchExtractionFunctions import pr_patches
 from NewPaReco.core.patch_extractor import pullrequest_patches
+from NewPaReco.core.patch_extractor_branches import pullrequest_patches_branch
 import requests
 
 
 class GACPD:
-    def __init__(self, params):
-        self.repo_check_number, self.repo_main_line, self.repo_divergent, self.token_list, self.divergence_date, self.cut_off_date = params
-        self.token_count = len(self.token_list)
-        self.repo_data = []
-        self.results = {}
-        self.main_dir_results = 'Results/Repos_results/'
-        self.repo_dir_files = 'Results/Repos_files/'
-        self.repo_clones = 'Results/Repos_clones/'
-        self.pr_classifications = {}
-        self.prs = []
-        self.file_extensions_swapped = {
-            ".abap": "abap",
-            ".as": "actionscript",
-            ".adb": "ada",
-            ".ads": "ada",
-            ".apl": "apl",
-            ".applescript": "applescript",
-            ".ino": "arduino",
-            ".pde": "processing",
-            ".arff": "arff",
-            ".adoc": "asciidoc",
-            ".asciidoc": "asciidoc",
-            ".asm": "nasm",
-            ".s": "asm6502",
-            ".aspx": "aspnet",
-            ".ascx": "aspnet",
-            ".ahk": "autohotkey",
-            ".au3": "autoit",
-            ".sh": "bash",
-            ".bash": "bash",
-            ".bas": "basic",
-            ".cmd": "batch",
-            ".y": "bison",
-            ".b": "brainfuck",
-            ".bf": "brainfuck",
-            ".bro": "bro",
-            ".c": "c",
-            ".h": "c-header",
-            ".clj": "clojure",
-            ".cljs": "clojure",
-            ".cljc": "clojure",
-            ".coffee": "coffeescript",
-            ".cpp": "cpp",
-            ".cc": "cpp",
-            ".cxx": "cpp",
-            ".hpp": "cpp-header",
-            ".hxx": "cpp-header",
-            ".hh": "cpp-header",
-            ".cr": "crystal",
-            ".cs": "csharp",
-            ".csp": "csp",
-            ".css": "css",
-            ".d": "d",
-            ".dart": "dart",
-            ".diff": "diff",
-            ".patch": "diff",
-            "Dockerfile": "docker",
-            ".dockerfile": "docker",
-            ".e": "eiffel",
-            ".ev": "eiffel",
-            ".ex": "elixir",
-            ".exs": "elixir",
-            ".elm": "elm",
-            ".erb": "erb",
-            ".erl": "erlang",
-            ".hrl": "erlang",
-            ".f": "fortran",
-            ".for": "fortran",
-            ".f90": "fortran",
-            ".f95": "fortran",
-            ".fs": "fsharp",
-            ".fsi": "fsharp",
-            ".fsx": "fsharp",
-            ".ged": "gedcom",
-            ".feature": "gherkin",
-            ".glsl": "glsl",
-            ".vert": "glsl",
-            ".frag": "glsl",
-            ".go": "go",
-            ".graphql": "graphql",
-            ".gql": "graphql",
-            ".groovy": "groovy",
-            ".gvy": "groovy",
-            ".haml": "haml",
-            ".hbs": "handlebars",
-            ".handlebars": "handlebars",
-            ".hs": "haskell",
-            ".hx": "haxe",
-            ".http": "http",
-            ".icn": "icon",
-            ".ini": "ini",
-            ".cfg": "ini",
-            ".io": "io",
-            ".ijs": "j",
-            ".java": "java",
-            ".js": "javascript",
-            ".mjs": "javascript",
-            ".ol": "jolie",
-            ".iol": "jolie",
-            ".json": "json",
-            ".jsx": "jsx",
-            ".jl": "julia",
-            ".keymap": "keymap",
-            ".kt": "kotlin",
-            ".kts": "kotlin",
-            ".tex": "latex",
-            ".sty": "latex",
-            ".cls": "latex",
-            ".less": "less",
-            ".liquid": "liquid",
-            ".lisp": "lisp",
-            ".lsp": "lisp",
-            ".cl": "lisp",
-            ".ls": "livescript",
-            ".lol": "lolcode",
-            ".lua": "lua",
-            "Makefile": "makefile",
-            ".mk": "makefile",
-            ".md": "markdown",
-            ".markdown": "markdown",
-            ".html": "markup",
-            ".xml": "markup",
-            ".xhtml": "markup",
-            ".m": "objectivec",
-            ".mel": "mel",
-            ".miz": "mizar",
-            ".monkey": "monkey",
-            ".n4js": "n4js",
-            ".nasm": "nasm",
-            ".nim": "nim",
-            ".nims": "nim",
-            ".nix": "nix",
-            ".nsi": "nsis",
-            ".nsh": "nsis",
-            ".mm": "objectivec",
-            ".ml": "ocaml",
-            ".mli": "ocaml",
-            ".cl": "opencl",
-            ".oz": "oz",
-            ".gp": "parigp",
-            ".pas": "pascal",
-            ".pl": "perl",
-            ".pm": "perl",
-            ".php": "php",
-            ".phtml": "php",
-            ".pls": "plsql",
-            ".plsql": "plsql",
-            ".ps1": "powershell",
-            ".psm1": "powershell",
-            ".pde": "processing",
-            ".pro": "prolog",
-            ".properties": "properties",
-            ".proto": "protobuf",
-            ".pug": "pug",
-            ".jade": "pug",
-            ".pp": "puppet",
-            ".pure": "pure",
-            ".py": "python",
-            ".pyw": "python",
-            ".q": "q",
-            ".r": "r",
-            ".R": "r",
-            ".re": "reason",
-            ".rpy": "renpy",
-            ".rest": "rest",
-            ".rst": "rest",
-            ".rip": "rip",
-            ".graph": "roboconf",
-            ".instances": "roboconf",
-            ".rb": "ruby",
-            ".rs": "rust",
-            ".sas": "sas",
-            ".sass": "sass",
-            ".scala": "scala",
-            ".scm": "scheme",
-            ".ss": "scheme",
-            ".scss": "scss",
-            ".st": "smalltalk",
-            ".tpl": "smarty",
-            ".soy": "soy",
-            ".sql": "sql",
-            ".styl": "stylus",
-            ".swift": "swift",
-            ".tap": "tap",
-            ".tcl": "tcl",
-            ".textile": "textile",
-            ".tsx": "tsx",
-            ".tt2": "tt2",
-            ".twig": "twig",
-            ".ts": "typescript",
-            ".vb": "visual-basic",
-            ".vm": "velocity",
-            ".v": "verilog",
-            ".vh": "verilog",
-            ".vhdl": "vhdl",
-            ".vhd": "vhdl",
-            ".vim": "vim",
-            ".wat": "wasm",
-            ".wasm": "wasm",
-            ".wiki": "wiki",
-            ".mediawiki": "wiki",
-            ".xeora": "xeora",
-            ".xeoracube": "xeora",
-            ".xojo_code": "xojo",
-            ".xojo_window": "xojo",
-            ".xq": "xquery",
-            ".xquery": "xquery",
-            ".yaml": "yaml",
-            ".yml": "yaml"
-        }
-        self.pareco_extensions = ["c", "java", "python", "bash", "prolog", "php", "ruby"]
-        self.renames = {}
-        self.cycles = []
+    def __init__(self, params, branch=False):
+        if branch is False:
+            self.repo_check_number, self.repo_main_line, self.repo_divergent, self.token_list, self.divergence_date, self.cut_off_date = params
+            self.token_count = len(self.token_list)
+            self.repo_data = []
+            self.results = {}
+            self.main_dir_results = 'Results/Repos_results/'
+            self.repo_dir_files = 'Results/Repos_files/'
+            self.repo_clones = 'Results/Repos_clones/'
+            self.pr_classifications = {}
+            self.prs = []
+            self.file_extensions_swapped = {
+                ".abap": "abap",
+                ".as": "actionscript",
+                ".adb": "ada",
+                ".ads": "ada",
+                ".apl": "apl",
+                ".applescript": "applescript",
+                ".ino": "arduino",
+                ".pde": "processing",
+                ".arff": "arff",
+                ".adoc": "asciidoc",
+                ".asciidoc": "asciidoc",
+                ".asm": "nasm",
+                ".s": "asm6502",
+                ".aspx": "aspnet",
+                ".ascx": "aspnet",
+                ".ahk": "autohotkey",
+                ".au3": "autoit",
+                ".sh": "bash",
+                ".bash": "bash",
+                ".bas": "basic",
+                ".cmd": "batch",
+                ".y": "bison",
+                ".b": "brainfuck",
+                ".bf": "brainfuck",
+                ".bro": "bro",
+                ".c": "c",
+                ".h": "c-header",
+                ".clj": "clojure",
+                ".cljs": "clojure",
+                ".cljc": "clojure",
+                ".coffee": "coffeescript",
+                ".cpp": "cpp",
+                ".cc": "cpp",
+                ".cxx": "cpp",
+                ".hpp": "cpp-header",
+                ".hxx": "cpp-header",
+                ".hh": "cpp-header",
+                ".cr": "crystal",
+                ".cs": "csharp",
+                ".csp": "csp",
+                ".css": "css",
+                ".d": "d",
+                ".dart": "dart",
+                ".diff": "diff",
+                ".patch": "diff",
+                "Dockerfile": "docker",
+                ".dockerfile": "docker",
+                ".e": "eiffel",
+                ".ev": "eiffel",
+                ".ex": "elixir",
+                ".exs": "elixir",
+                ".elm": "elm",
+                ".erb": "erb",
+                ".erl": "erlang",
+                ".hrl": "erlang",
+                ".f": "fortran",
+                ".for": "fortran",
+                ".f90": "fortran",
+                ".f95": "fortran",
+                ".fs": "fsharp",
+                ".fsi": "fsharp",
+                ".fsx": "fsharp",
+                ".ged": "gedcom",
+                ".feature": "gherkin",
+                ".glsl": "glsl",
+                ".vert": "glsl",
+                ".frag": "glsl",
+                ".go": "go",
+                ".graphql": "graphql",
+                ".gql": "graphql",
+                ".groovy": "groovy",
+                ".gvy": "groovy",
+                ".haml": "haml",
+                ".hbs": "handlebars",
+                ".handlebars": "handlebars",
+                ".hs": "haskell",
+                ".hx": "haxe",
+                ".http": "http",
+                ".icn": "icon",
+                ".ini": "ini",
+                ".cfg": "ini",
+                ".io": "io",
+                ".ijs": "j",
+                ".java": "java",
+                ".js": "javascript",
+                ".mjs": "javascript",
+                ".ol": "jolie",
+                ".iol": "jolie",
+                ".json": "json",
+                ".jsx": "jsx",
+                ".jl": "julia",
+                ".keymap": "keymap",
+                ".kt": "kotlin",
+                ".kts": "kotlin",
+                ".tex": "latex",
+                ".sty": "latex",
+                ".cls": "latex",
+                ".less": "less",
+                ".liquid": "liquid",
+                ".lisp": "lisp",
+                ".lsp": "lisp",
+                ".cl": "lisp",
+                ".ls": "livescript",
+                ".lol": "lolcode",
+                ".lua": "lua",
+                "Makefile": "makefile",
+                ".mk": "makefile",
+                ".md": "markdown",
+                ".markdown": "markdown",
+                ".html": "markup",
+                ".xml": "markup",
+                ".xhtml": "markup",
+                ".m": "objectivec",
+                ".mel": "mel",
+                ".miz": "mizar",
+                ".monkey": "monkey",
+                ".n4js": "n4js",
+                ".nasm": "nasm",
+                ".nim": "nim",
+                ".nims": "nim",
+                ".nix": "nix",
+                ".nsi": "nsis",
+                ".nsh": "nsis",
+                ".mm": "objectivec",
+                ".ml": "ocaml",
+                ".mli": "ocaml",
+                ".cl": "opencl",
+                ".oz": "oz",
+                ".gp": "parigp",
+                ".pas": "pascal",
+                ".pl": "perl",
+                ".pm": "perl",
+                ".php": "php",
+                ".phtml": "php",
+                ".pls": "plsql",
+                ".plsql": "plsql",
+                ".ps1": "powershell",
+                ".psm1": "powershell",
+                ".pde": "processing",
+                ".pro": "prolog",
+                ".properties": "properties",
+                ".proto": "protobuf",
+                ".pug": "pug",
+                ".jade": "pug",
+                ".pp": "puppet",
+                ".pure": "pure",
+                ".py": "python",
+                ".pyw": "python",
+                ".q": "q",
+                ".r": "r",
+                ".R": "r",
+                ".re": "reason",
+                ".rpy": "renpy",
+                ".rest": "rest",
+                ".rst": "rest",
+                ".rip": "rip",
+                ".graph": "roboconf",
+                ".instances": "roboconf",
+                ".rb": "ruby",
+                ".rs": "rust",
+                ".sas": "sas",
+                ".sass": "sass",
+                ".scala": "scala",
+                ".scm": "scheme",
+                ".ss": "scheme",
+                ".scss": "scss",
+                ".st": "smalltalk",
+                ".tpl": "smarty",
+                ".soy": "soy",
+                ".sql": "sql",
+                ".styl": "stylus",
+                ".swift": "swift",
+                ".tap": "tap",
+                ".tcl": "tcl",
+                ".textile": "textile",
+                ".tsx": "tsx",
+                ".tt2": "tt2",
+                ".twig": "twig",
+                ".ts": "typescript",
+                ".vb": "visual-basic",
+                ".vm": "velocity",
+                ".v": "verilog",
+                ".vh": "verilog",
+                ".vhdl": "vhdl",
+                ".vhd": "vhdl",
+                ".vim": "vim",
+                ".wat": "wasm",
+                ".wasm": "wasm",
+                ".wiki": "wiki",
+                ".mediawiki": "wiki",
+                ".xeora": "xeora",
+                ".xeoracube": "xeora",
+                ".xojo_code": "xojo",
+                ".xojo_window": "xojo",
+                ".xq": "xquery",
+                ".xquery": "xquery",
+                ".yaml": "yaml",
+                ".yml": "yaml"
+            }
+            self.pareco_extensions = ["c", "java", "python", "bash", "prolog", "php", "ruby"]
+            self.renames = {}
+            self.cycles = []
+        else:
+            self.repo_number, self.repo_main_line, self.repo_divergent, self.token_list = params
+            self.token_count = len(self.token_list)
+            self.repo_data = []
+            self.results = {}
+            self.main_dir_results = 'Results/Branch_results/'
+            self.repo_dir_files = 'Results/Branch_files/'
+            self.repo_clones = 'Results/Branch_clones/'
+            self.pr_classifications = {}
+            self.prs = []
+            self.file_extensions_swapped = {
+                ".abap": "abap",
+                ".as": "actionscript",
+                ".adb": "ada",
+                ".ads": "ada",
+                ".apl": "apl",
+                ".applescript": "applescript",
+                ".ino": "arduino",
+                ".pde": "processing",
+                ".arff": "arff",
+                ".adoc": "asciidoc",
+                ".asciidoc": "asciidoc",
+                ".asm": "nasm",
+                ".s": "asm6502",
+                ".aspx": "aspnet",
+                ".ascx": "aspnet",
+                ".ahk": "autohotkey",
+                ".au3": "autoit",
+                ".sh": "bash",
+                ".bash": "bash",
+                ".bas": "basic",
+                ".cmd": "batch",
+                ".y": "bison",
+                ".b": "brainfuck",
+                ".bf": "brainfuck",
+                ".bro": "bro",
+                ".c": "c",
+                ".h": "c-header",
+                ".clj": "clojure",
+                ".cljs": "clojure",
+                ".cljc": "clojure",
+                ".coffee": "coffeescript",
+                ".cpp": "cpp",
+                ".cc": "cpp",
+                ".cxx": "cpp",
+                ".hpp": "cpp-header",
+                ".hxx": "cpp-header",
+                ".hh": "cpp-header",
+                ".cr": "crystal",
+                ".cs": "csharp",
+                ".csp": "csp",
+                ".css": "css",
+                ".d": "d",
+                ".dart": "dart",
+                ".diff": "diff",
+                ".patch": "diff",
+                "Dockerfile": "docker",
+                ".dockerfile": "docker",
+                ".e": "eiffel",
+                ".ev": "eiffel",
+                ".ex": "elixir",
+                ".exs": "elixir",
+                ".elm": "elm",
+                ".erb": "erb",
+                ".erl": "erlang",
+                ".hrl": "erlang",
+                ".f": "fortran",
+                ".for": "fortran",
+                ".f90": "fortran",
+                ".f95": "fortran",
+                ".fs": "fsharp",
+                ".fsi": "fsharp",
+                ".fsx": "fsharp",
+                ".ged": "gedcom",
+                ".feature": "gherkin",
+                ".glsl": "glsl",
+                ".vert": "glsl",
+                ".frag": "glsl",
+                ".go": "go",
+                ".graphql": "graphql",
+                ".gql": "graphql",
+                ".groovy": "groovy",
+                ".gvy": "groovy",
+                ".haml": "haml",
+                ".hbs": "handlebars",
+                ".handlebars": "handlebars",
+                ".hs": "haskell",
+                ".hx": "haxe",
+                ".http": "http",
+                ".icn": "icon",
+                ".ini": "ini",
+                ".cfg": "ini",
+                ".io": "io",
+                ".ijs": "j",
+                ".java": "java",
+                ".js": "javascript",
+                ".mjs": "javascript",
+                ".ol": "jolie",
+                ".iol": "jolie",
+                ".json": "json",
+                ".jsx": "jsx",
+                ".jl": "julia",
+                ".keymap": "keymap",
+                ".kt": "kotlin",
+                ".kts": "kotlin",
+                ".tex": "latex",
+                ".sty": "latex",
+                ".cls": "latex",
+                ".less": "less",
+                ".liquid": "liquid",
+                ".lisp": "lisp",
+                ".lsp": "lisp",
+                ".cl": "lisp",
+                ".ls": "livescript",
+                ".lol": "lolcode",
+                ".lua": "lua",
+                "Makefile": "makefile",
+                ".mk": "makefile",
+                ".md": "markdown",
+                ".markdown": "markdown",
+                ".html": "markup",
+                ".xml": "markup",
+                ".xhtml": "markup",
+                ".m": "objectivec",
+                ".mel": "mel",
+                ".miz": "mizar",
+                ".monkey": "monkey",
+                ".n4js": "n4js",
+                ".nasm": "nasm",
+                ".nim": "nim",
+                ".nims": "nim",
+                ".nix": "nix",
+                ".nsi": "nsis",
+                ".nsh": "nsis",
+                ".mm": "objectivec",
+                ".ml": "ocaml",
+                ".mli": "ocaml",
+                ".cl": "opencl",
+                ".oz": "oz",
+                ".gp": "parigp",
+                ".pas": "pascal",
+                ".pl": "perl",
+                ".pm": "perl",
+                ".php": "php",
+                ".phtml": "php",
+                ".pls": "plsql",
+                ".plsql": "plsql",
+                ".ps1": "powershell",
+                ".psm1": "powershell",
+                ".pde": "processing",
+                ".pro": "prolog",
+                ".properties": "properties",
+                ".proto": "protobuf",
+                ".pug": "pug",
+                ".jade": "pug",
+                ".pp": "puppet",
+                ".pure": "pure",
+                ".py": "python",
+                ".pyw": "python",
+                ".q": "q",
+                ".r": "r",
+                ".R": "r",
+                ".re": "reason",
+                ".rpy": "renpy",
+                ".rest": "rest",
+                ".rst": "rest",
+                ".rip": "rip",
+                ".graph": "roboconf",
+                ".instances": "roboconf",
+                ".rb": "ruby",
+                ".rs": "rust",
+                ".sas": "sas",
+                ".sass": "sass",
+                ".scala": "scala",
+                ".scm": "scheme",
+                ".ss": "scheme",
+                ".scss": "scss",
+                ".st": "smalltalk",
+                ".tpl": "smarty",
+                ".soy": "soy",
+                ".sql": "sql",
+                ".styl": "stylus",
+                ".swift": "swift",
+                ".tap": "tap",
+                ".tcl": "tcl",
+                ".textile": "textile",
+                ".tsx": "tsx",
+                ".tt2": "tt2",
+                ".twig": "twig",
+                ".ts": "typescript",
+                ".vb": "visual-basic",
+                ".vm": "velocity",
+                ".v": "verilog",
+                ".vh": "verilog",
+                ".vhdl": "vhdl",
+                ".vhd": "vhdl",
+                ".vim": "vim",
+                ".wat": "wasm",
+                ".wasm": "wasm",
+                ".wiki": "wiki",
+                ".mediawiki": "wiki",
+                ".xeora": "xeora",
+                ".xeoracube": "xeora",
+                ".xojo_code": "xojo",
+                ".xojo_window": "xojo",
+                ".xq": "xquery",
+                ".xquery": "xquery",
+                ".yaml": "yaml",
+                ".yml": "yaml"
+            }
+            self.pareco_extensions = ["c", "java", "python", "bash", "prolog", "php", "ruby"]
+            self.renames = {}
+            self.cycles = []
+        self.ct = 0
+
+    def extract_branch_patches(self):
+        print(f'Extracting patches for {self.repo_main_line} and {self.repo_divergent}...')
+        repo = self.repo_main_line.split("/")
+        pr_patch_ml, pr_title_ml, self.ct = pullrequest_patches_branch(repo[0]+"/"+repo[1], repo[2], self.token_list, self.ct)
+
+        # at least one of the mainline or fork should have a pr with patch
+        if len(pr_patch_ml) > 0:
+            if len(pr_patch_ml) > 1:
+                pr_patch_ml_str = '/'.join(map(str, pr_patch_ml))
+                pr_title_ml_str = '=/='.join(map(str, pr_title_ml))
+            if len(pr_patch_ml) == 1:
+                pr_patch_ml_str = pr_patch_ml[0]
+                pr_title_ml_str = pr_title_ml[0]
+
+        df_data = []
+        for i in range(len(pr_patch_ml)):
+            df_data.append([pr_patch_ml[i], pr_title_ml[i]])
+
+        self.df_patches = pd.DataFrame(df_data, columns=['Patch number', 'Patch title'])
+
+        return pr_patch_ml
 
     def set_prs(self, prs):
         for pr in prs:
@@ -264,6 +502,17 @@ class GACPD:
         print(f'\t Behind by {self.behind_by} commits')
         print(
             f'Select an interval within the period [{self.divergence_date}, {self.cut_off_date}] to limit the patches being checked.')
+
+    def jscpd_bin(self):
+        # Prefer npx if available (handles Windows/Unix, no path quirks)
+        npx = shutil.which("npx")
+        if npx:
+            return [npx, "jscpd"]
+        # Fallback to local .bin shims (Windows uses .cmd)
+        bin_dir = os.path.join(os.getcwd(), "node_modules", ".bin")
+        if platform.system() == "Windows":
+            return [os.path.join(bin_dir, "jscpd.cmd")]
+        return [os.path.join(bin_dir, "jscpd")]
 
     def createDf(self):
         df_data_files = []
@@ -321,8 +570,10 @@ class GACPD:
             hunk_count = 0
             add_count = 0
             del_count = 0
+            line_count = 0
             additions_file = []
             deletions_file = []
+            context_file = []
 
             for line in patch:
                 # Detect the start of a new hunk (lines starting with "@@")
@@ -330,9 +581,11 @@ class GACPD:
                     if hunk_count >= 0:
                         self.save_hunk_files(hunk_count, output_dir, deletions_file, del_count, f"deletions.{extension}")
                         self.save_hunk_files(hunk_count, output_dir, additions_file, add_count, f"additions.{extension}")
+                        self.save_hunk_files(hunk_count, output_dir, context_file, line_count, f"context.{extension}")
                     hunk_count += 1
                     additions_file = []
                     deletions_file = []
+                    context_file = []
 
                 if line.startswith('+') and not line.startswith("+++"):
                     additions_file.append(line[1:])
@@ -343,11 +596,14 @@ class GACPD:
                 elif not line.startswith("---") and not line.startswith("+++") and not line.startswith('@@'):
                     additions_file.append(line)
                     deletions_file.append(line)
+                    context_file.append(line)
+                    line_count += 1
 
             # Process the last hunk if any
             if deletions_file or additions_file:
                 self.save_hunk_files(hunk_count, output_dir, deletions_file, del_count, f"deletions.{extension}")
                 self.save_hunk_files(hunk_count, output_dir, additions_file, add_count, f"additions.{extension}")
+                self.save_hunk_files(hunk_count, output_dir, context_file, line_count, f"context.{extension}")
 
     def save_hunk_files(self, hunk_id, output_dir, additions_hunks, counts, type_of_change):
         os.makedirs(output_dir, exist_ok=True)
@@ -732,9 +988,39 @@ class GACPD:
                                                     renamedDestPath = True
 
                                         self.parse_patch_file(f'src/{repo_files[len(repo_files) - 1]}', f'src', f'{extension}')
+                                        tokens_context = [10]
+                                        files_context = []
+                                        for token in tokens_context:
+                                            cmd = self.jscpd_bin() + [
+                                                "--pattern", f'*.{extension}',
+                                                "--min-tokens",  f'{token}',
+                                                "src", "cmp"
+                                            ]
+
+                                            subprocess.run(cmd, text=True, capture_output=True, cwd=os.getcwd())
+
+                                            file_check = open('reports/html/jscpd-report.json')
+                                            data_check = json.load(file_check)
+                                            file_check.close()
+
+                                            format = self.file_extensions_swapped.get("." + extension)
+
+                                            try:
+                                                for checks in data_check["statistics"]["formats"][format][
+                                                    "sources"]:
+                                                    value = data_check["statistics"]["formats"][format]["sources"][
+                                                        checks]["duplicatedTokens"]
+
+                                                    if "context" in checks:
+                                                        if value != 0:
+                                                            files_context.append("_".join(checks.split("_")[:2]))
+                                            except Exception as e2:
+                                                pass
+
+                                            self.remove_all_files('reports')
 
                                         classification = ""
-                                        tokens_jscpd = [30]
+                                        tokens_jscpd = [50,40,30]
                                         MO_total = 0
                                         ED_total = 0
                                         SP_total = 0
@@ -743,43 +1029,54 @@ class GACPD:
                                             ED_check = 0
                                             NA_check = 0
 
-                                            jscpd_path = os.path.normpath(
-                                                os.path.join(os.getcwd(), 'node_modules', '.bin', 'jscpd'))
-                                            jscpd_path = jscpd_path.replace('\\', '/')
+                                            cmd = self.jscpd_bin() + [
+                                                "--pattern", f'*.{extension}',
+                                                "--min-tokens",  f'{token}',
+                                                "src", "cmp"
+                                            ]
 
-                                            test = subprocess.run(
-                                                [jscpd_path, '--pattern', f'*.{extension}', '--min-tokens',
-                                                 f'{jscpdtoken}'],
-                                                capture_output=True,
-                                                text=True
-                                            )
+                                            subprocess.run(cmd, text=True, capture_output=True, cwd=os.getcwd())
 
                                             file_check = open('reports/html/jscpd-report.json')
                                             data_check = json.load(file_check)
                                             file_check.close()
 
+                                            mo_context_check = []
+                                            ed_context_check = []
                                             format = self.file_extensions_swapped.get("." + extension)
                                             try:
                                                 for checks in data_check["statistics"]["formats"][format][
                                                     "sources"]:
-                                                    if "deletions" in checks:
-                                                        MO_check += \
-                                                            data_check["statistics"]["formats"][format]["sources"][
+                                                    value = data_check["statistics"]["formats"][format]["sources"][
                                                                 checks]["duplicatedTokens"]
+                                                    if "deletions" in checks:
+                                                        MO_check += value
+                                                        if value == 0:
+                                                            for hunk in files_context:
+                                                                if checks.startswith(hunk):
+                                                                    mo_context_check.append(checks)
+                                                                    break
                                                         percentage = data_check["statistics"]["formats"][format]["sources"][
                                                                 checks]["percentage"]
                                                         localCheckPercetage.append(f"{checks} ({jscpdtoken}) - has a similarity of: {percentage}%\n")
                                                     if "additions" in checks:
-                                                        ED_check += \
-                                                            data_check["statistics"]["formats"][format]["sources"][
-                                                                checks]["duplicatedTokens"]
+                                                        ED_check += value
+                                                        if value == 0:
+                                                            for hunk in files_context:
+                                                                if checks.startswith(hunk):
+                                                                    ed_context_check.append(checks)
+                                                                    break
                                                         percentage = data_check["statistics"]["formats"][format]["sources"][
                                                                 checks]["percentage"]
                                                         localCheckPercetage.append(f"{checks} ({jscpdtoken}) - has a similarity of: {percentage}%\n")
-                                            except Exception as e:
+                                            except Exception as e3:
                                                 print("HERE - 2")
 
-                                            if MO_check == 0 and ED_check == 0:
+                                            if MO_check == 0 and len(mo_context_check) > 0:
+                                                ED_total += 1
+                                            elif ED_check == 0 and len(ed_context_check) > 0:
+                                                MO_total += 1
+                                            elif MO_check == 0 and ED_check == 0:
                                                 NA_check += 1
                                                 continue
                                             elif MO_check == ED_check:
