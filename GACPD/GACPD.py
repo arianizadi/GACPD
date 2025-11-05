@@ -1,6 +1,6 @@
 import os
 import pprint
-import sys
+import sys, platform
 import json
 import pandas as pd
 import shutil
@@ -503,6 +503,17 @@ class GACPD:
         print(
             f'Select an interval within the period [{self.divergence_date}, {self.cut_off_date}] to limit the patches being checked.')
 
+    def jscpd_bin(self):
+        # Prefer npx if available (handles Windows/Unix, no path quirks)
+        npx = shutil.which("npx")
+        if npx:
+            return [npx, "jscpd"]
+        # Fallback to local .bin shims (Windows uses .cmd)
+        bin_dir = os.path.join(os.getcwd(), "node_modules", ".bin")
+        if platform.system() == "Windows":
+            return [os.path.join(bin_dir, "jscpd.cmd")]
+        return [os.path.join(bin_dir, "jscpd")]
+
     def createDf(self):
         df_data_files = []
         df_data_patches = []
@@ -980,16 +991,13 @@ class GACPD:
                                         tokens_context = [10]
                                         files_context = []
                                         for token in tokens_context:
-                                            jscpd_path = os.path.normpath(
-                                                os.path.join(os.getcwd(), 'node_modules', '.bin', 'jscpd'))
-                                            jscpd_path = jscpd_path.replace('\\', '/')
+                                            cmd = self.jscpd_bin() + [
+                                                "--pattern", f'*.{extension}',
+                                                "--min-tokens",  f'{token}',
+                                                "src", "cmp"
+                                            ]
 
-                                            test = subprocess.run(
-                                                [jscpd_path, '--pattern', f'*.{extension}', '--min-tokens',
-                                                 f'{token}'],
-                                                capture_output=True,
-                                                text=True
-                                            )
+                                            subprocess.run(cmd, text=True, capture_output=True, cwd=os.getcwd())
 
                                             file_check = open('reports/html/jscpd-report.json')
                                             data_check = json.load(file_check)
@@ -1010,6 +1018,7 @@ class GACPD:
                                                 pass
 
                                             self.remove_all_files('reports')
+
                                         classification = ""
                                         tokens_jscpd = [50,40,30]
                                         MO_total = 0
@@ -1020,16 +1029,13 @@ class GACPD:
                                             ED_check = 0
                                             NA_check = 0
 
-                                            jscpd_path = os.path.normpath(
-                                                os.path.join(os.getcwd(), 'node_modules', '.bin', 'jscpd'))
-                                            jscpd_path = jscpd_path.replace('\\', '/')
+                                            cmd = self.jscpd_bin() + [
+                                                "--pattern", f'*.{extension}',
+                                                "--min-tokens",  f'{token}',
+                                                "src", "cmp"
+                                            ]
 
-                                            test = subprocess.run(
-                                                [jscpd_path, '--pattern', f'*.{extension}', '--min-tokens',
-                                                 f'{jscpdtoken}'],
-                                                capture_output=True,
-                                                text=True
-                                            )
+                                            subprocess.run(cmd, text=True, capture_output=True, cwd=os.getcwd())
 
                                             file_check = open('reports/html/jscpd-report.json')
                                             data_check = json.load(file_check)

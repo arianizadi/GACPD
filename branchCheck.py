@@ -41,18 +41,27 @@ def create_git_folder(folder, repo_name):
     os.chdir(og_path)
 
 def run_jscpd(extension, token):
-    jscpd_path = os.path.normpath(
-        os.path.join(os.getcwd(), 'node_modules', '.bin', 'jscpd'))
-    jscpd_path = jscpd_path.replace('\\', '/')
+    import os, platform, shutil, subprocess, sys
 
-    test = subprocess.run(
-        [jscpd_path, '--pattern', f'*.{extension}', '--min-tokens',
-         f'{token}'],
-        capture_output=True,
-        text=True
-    )
+    def jscpd_bin():
+        # Prefer npx if available (handles Windows/Unix, no path quirks)
+        npx = shutil.which("npx")
+        if npx:
+            return [npx, "jscpd"]
+        # Fallback to local .bin shims (Windows uses .cmd)
+        bin_dir = os.path.join(os.getcwd(), "node_modules", ".bin")
+        if platform.system() == "Windows":
+            return [os.path.join(bin_dir, "jscpd.cmd")]
+        return [os.path.join(bin_dir, "jscpd")]
 
-    print(test)
+    cmd = jscpd_bin() + [
+        "--pattern", "**/*.{}".format(extension),
+        "--min-tokens", str(token),
+        # pass paths explicitly (see §3)
+        "src", "cmp"
+    ]
+    result = subprocess.run(cmd, text=True, capture_output=True, cwd=os.getcwd())
+    print(result.stdout, result.stderr, result.returncode)
 
 
 def get_all_files(directory_path):
@@ -69,14 +78,15 @@ def main():
     folder = "Check"
     repo_name = "ardupilot"
     repo_owner = "Ardupilot"
-    full_path = "1/"+repo_owner+"/"+repo_name
+    numCheck = '1'
+    full_path = numCheck+"/"+repo_owner+"/"+repo_name
 
     # create_git_folder(folder, full_path)
-    first_folder = "ArduCopter"
+    first_folder = "ArduSub"
     first_check_folder = folder+"/"+full_path+"/"+first_folder
     files1 = get_all_files(first_check_folder)
 
-    second_folder = "ArduPlane"
+    second_folder = "Rover"
     second_check_folder = folder+"/"+full_path+"/"+second_folder
     shutil.copytree(second_check_folder, 'cmp', dirs_exist_ok=True)
 
@@ -86,23 +96,21 @@ def main():
         print(f"{entry} - {i}")
         tokens = [50, 40, 30, 20, 10]
         shutil.copy(first_check_folder +"/"+entry, 'src')
+        extension = entry.split(".")
+        if len(extension) == 2:
+            for token in tokens:
 
-        for token in tokens:
-            extension = entry.split(".")
-
-            run_jscpd(extension[1], token)
-
-            shutil.copytree('src',
-                            f'Check/Repos_results/1/{token}/{entry}/src',
-                            dirs_exist_ok=True)
-            shutil.copytree('cmp',
-                            f'Check/Repos_results/1/{token}/{entry}/cmp',
-                            dirs_exist_ok=True)
-            shutil.copytree('reports',
-                            f'Check/Repos_results/1/{token}/{entry}/reports',
-                            dirs_exist_ok=True)
-
-
+                run_jscpd(extension[1], token)
+                exit(0)
+                shutil.copytree('src',
+                                f'Check/Repos_results/{numCheck}-{first_folder}-{second_folder}/{token}/{entry}/src',
+                                dirs_exist_ok=True)
+                shutil.copytree('cmp',
+                                f'Check/Repos_results/{numCheck}-{first_folder}-{second_folder}/{token}/{entry}/cmp',
+                                dirs_exist_ok=True)
+                shutil.copytree('reports',
+                                f'Check/Repos_results/{numCheck}-{first_folder}-{second_folder}/{token}/{entry}/reports',
+                                dirs_exist_ok=True)
         remove_all_files('src')
         remove_all_files('reports')
     remove_all_files('cmp')
