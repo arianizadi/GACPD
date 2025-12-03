@@ -994,6 +994,8 @@ class GACPD:
                                             cmd = self.jscpd_bin() + [
                                                 "--pattern", f'*.{extension}',
                                                 "--min-tokens",  f'{token}',
+                                                "--output", "reports",
+                                                "--reporters", "html",
                                                 "src", "cmp"
                                             ]
 
@@ -1031,7 +1033,9 @@ class GACPD:
 
                                             cmd = self.jscpd_bin() + [
                                                 "--pattern", f'*.{extension}',
-                                                "--min-tokens",  f'{token}',
+                                                "--min-tokens",  f'{jscpdtoken}',
+                                                "--output", "reports",
+                                                "--reporters", "html",
                                                 "src", "cmp"
                                             ]
 
