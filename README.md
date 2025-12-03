@@ -55,3 +55,11 @@ pip install -r requirements.txt
 
 # Github Tokens
 We use [GitHub tokens](https://github.com/settings/tokens) when extracting PR patches. This allows for higher rate limit because of the high number of requests to the GitHub API. Tokens can be set in the tokens.txt file seperated by a comman. The user can add as many tokens as needed. A minimal of 2 tokens can be used to safely execute code and to make sure that the rate limit is not reached for a token.
+
+
+# Classifications
+
+An MO classification is granted if more tokens from the “deleted” code fragments are obtained.
+An ED classification is granted if more tokens from the “added” code fragments are obtained.
+An SP classification is granted if an equal number of tokens from the “deleted” and “added” code fragments is obtained.
+An NA classification is granted if neither MO, ED or SP are granted.
