@@ -59,7 +59,7 @@ We use [GitHub tokens](https://github.com/settings/tokens) when extracting PR pa
 
 # Classifications
 
-An MO classification is granted if more tokens from the “deleted” code fragments are obtained.
-An ED classification is granted if more tokens from the “added” code fragments are obtained.
-An SP classification is granted if an equal number of tokens from the “deleted” and “added” code fragments is obtained.
-An NA classification is granted if neither MO, ED or SP are granted.
+- **MO**: Granted if more tokens from the “deleted” code fragments are obtained.
+- **ED**: Granted if more tokens from the “added” code fragments are obtained.
+- **SP**: Granted if an equal number of tokens from the “deleted” and “added” code fragments is obtained.
+- **NA**: Granted if neither MO, ED nor SP are granted.
